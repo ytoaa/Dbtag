@@ -131,7 +131,7 @@ def fetch_tags(min_count: int, max_pages: int, delay: float) -> list[dict]:
                 if tag is not None and tag["count"] >= min_count:
                     tags.append(tag)
 
-            print(f"Fetched page {page}: {len(rows)} rows, {len(tags)} kept")
+            print(f"Fetched page {page}: {len(rows)} rows, {len(tags)} kept", flush=True)
             page += 1
 
             if delay > 0:
@@ -167,8 +167,8 @@ def main() -> int:
     write_csv(tags, CSV_PATH)
     write_autocomplete(tags, AUTOCOMPLETE_PATH)
 
-    print(f"Wrote {len(tags)} tags to {CSV_PATH}")
-    print(f"Wrote {len(tags)} tags to {AUTOCOMPLETE_PATH}")
+    print(f"Wrote {len(tags)} tags to {CSV_PATH}", flush=True)
+    print(f"Wrote {len(tags)} tags to {AUTOCOMPLETE_PATH}", flush=True)
     return 0
 
 
@@ -176,5 +176,5 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except requests.RequestException as error:
-        print(f"Danbooru request failed: {error}", file=sys.stderr)
+        print(f"Danbooru request failed: {error}", file=sys.stderr, flush=True)
         raise SystemExit(1)
