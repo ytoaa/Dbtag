@@ -1,11 +1,21 @@
 {
+  "version": 1,
   "check_updates_on_startup": false,
   "hf_datasets": [
     {
       "hf_dataset_id": "newtextdoc1111/danbooru-tag-csv",
+      "last_remote_check_timestamp": null,
       "csv_files": [
-        { "file_name": "danbooru_tags.csv" },
-        { "file_name": "danbooru_tags_cooccurrence.csv" }
+        {
+          "file_name": "danbooru_tags.csv",
+          "last_download": "2026-05-16T00:00:00+00:00",
+          "last_modified_on_hf": null
+        },
+        {
+          "file_name": "danbooru_tags_cooccurrence.csv",
+          "last_download": "2026-05-16T00:00:00+00:00",
+          "last_modified_on_hf": null
+        }
       ]
     }
   ]
