@@ -1,0 +1,12 @@
+{
+  "check_updates_on_startup": false,
+  "hf_datasets": [
+    {
+      "hf_dataset_id": "newtextdoc1111/danbooru-tag-csv",
+      "csv_files": [
+        { "file_name": "danbooru_tags.csv" },
+        { "file_name": "danbooru_tags_cooccurrence.csv" }
+      ]
+    }
+  ]
+}
