@@ -126,12 +126,26 @@ def fetch_tags(min_count: int, max_pages: int, delay: float) -> list[dict]:
             if not rows:
                 break
 
+            kept_on_page = 0
             for row in rows:
                 tag = normalize_tag(row)
                 if tag is not None and tag["count"] >= min_count:
                     tags.append(tag)
+                    kept_on_page += 1
 
-            print(f"Fetched page {page}: {len(rows)} rows, {len(tags)} kept", flush=True)
+            print(
+                f"Fetched page {page}: {len(rows)} rows, "
+                f"{kept_on_page} kept on page, {len(tags)} kept total",
+                flush=True,
+            )
+
+            if kept_on_page == 0:
+                print(
+                    f"Stopping at page {page}: no tags met min_count={min_count}",
+                    flush=True,
+                )
+                break
+
             page += 1
 
             if delay > 0:
