@@ -14,6 +14,7 @@ import requests
 
 
 API_URL = "https://danbooru.donmai.us/tags.json"
+WIKI_PAGES_URL = "https://danbooru.donmai.us/wiki_pages.json"
 USER_AGENT = "danbooru-tag-auto-updater/1.0"
 LIMIT = 1000
 MIN_COUNT = 20
@@ -49,6 +50,12 @@ def parse_args() -> argparse.Namespace:
         type=positive_int,
         default=int(os.getenv("MAX_PAGES", "0")),
         help="optional page limit for testing; 0 means fetch until Danbooru returns []",
+    )
+    parser.add_argument(
+        "--max-wiki-pages",
+        type=positive_int,
+        default=int(os.getenv("MAX_WIKI_PAGES", "0")),
+        help="optional wiki page limit for testing; 0 means fetch until all aliases are checked",
     )
     parser.add_argument(
         "--delay",
@@ -93,6 +100,38 @@ def fetch_page(session: requests.Session, page: int) -> list[dict]:
     return data
 
 
+def fetch_wiki_page(session: requests.Session, page: int) -> list[dict]:
+    params = {
+        "limit": LIMIT,
+        "search[hide_deleted]": "yes",
+        "page": page,
+    }
+
+    response = None
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            response = session.get(
+                WIKI_PAGES_URL,
+                headers={"User-Agent": USER_AGENT},
+                params=params,
+                timeout=REQUEST_TIMEOUT_SECONDS,
+            )
+            break
+        except requests.RequestException:
+            if attempt == MAX_RETRIES:
+                raise
+            time.sleep(attempt)
+
+    if response is None:
+        raise RuntimeError(f"No response returned for wiki page {page}")
+
+    response.raise_for_status()
+    data = response.json()
+    if not isinstance(data, list):
+        raise RuntimeError(f"Unexpected wiki API response for page {page}: {data!r}")
+    return data
+
+
 def normalize_tag(raw: dict) -> dict | None:
     name = raw.get("name")
     category = raw.get("category")
@@ -111,6 +150,15 @@ def normalize_tag(raw: dict) -> dict | None:
         "count": count,
         "alias": "",
     }
+
+
+def normalize_aliases(raw: object) -> str:
+    if isinstance(raw, list):
+        names = [name for name in raw if isinstance(name, str) and name]
+        return ",".join(dict.fromkeys(names))
+    if isinstance(raw, str):
+        return raw
+    return ""
 
 
 def fetch_tags(min_count: int, max_pages: int, delay: float) -> list[dict]:
@@ -155,6 +203,51 @@ def fetch_tags(min_count: int, max_pages: int, delay: float) -> list[dict]:
     return tags
 
 
+def add_aliases(tags: list[dict], max_wiki_pages: int, delay: float) -> None:
+    tags_by_name = {tag["tag"]: tag for tag in tags}
+    remaining = set(tags_by_name)
+    alias_count = 0
+
+    with requests.Session() as session:
+        page = 1
+        while remaining:
+            if max_wiki_pages and page > max_wiki_pages:
+                break
+
+            rows = fetch_wiki_page(session, page)
+            if not rows:
+                break
+
+            matched_on_page = 0
+            for row in rows:
+                title = row.get("title")
+                if not isinstance(title, str) or title not in remaining:
+                    continue
+
+                aliases = normalize_aliases(row.get("other_names"))
+                if aliases:
+                    tags_by_name[title]["alias"] = aliases
+                    alias_count += 1
+
+                remaining.remove(title)
+                matched_on_page += 1
+
+            print(
+                f"Fetched wiki page {page}: {len(rows)} rows, "
+                f"{matched_on_page} matched on page, {alias_count} aliases found",
+                flush=True,
+            )
+            page += 1
+
+            if delay > 0:
+                time.sleep(delay)
+
+    print(
+        f"Filled aliases for {alias_count} tags; {len(remaining)} tags had no wiki match",
+        flush=True,
+    )
+
+
 def write_csv(tags: list[dict], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as file:
@@ -177,6 +270,7 @@ def main() -> int:
         max_pages=args.max_pages,
         delay=args.delay,
     )
+    add_aliases(tags, args.max_wiki_pages, args.delay)
 
     write_csv(tags, CSV_PATH)
     write_autocomplete(tags, AUTOCOMPLETE_PATH)
